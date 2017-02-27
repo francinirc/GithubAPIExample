@@ -7,11 +7,12 @@
 //
 
 import UIKit
+import Alamofire
 
 class UsersListTableViewController: UITableViewController {
 
-    let usersList = ["user 1", "user 2", "user 3"]
-    var filteredResults = [String]()
+    var usersList = [User]()
+    var filteredResults = [User]()
     let searchController = UISearchController(searchResultsController: nil)
     
     
@@ -19,6 +20,9 @@ class UsersListTableViewController: UITableViewController {
         super.viewDidLoad()
         setupSearchBar()
 
+        performSelector(inBackground: #selector(searchUsers), with: nil)
+        
+        
         // Uncomment the following line to preserve selection between presentations
         // self.clearsSelectionOnViewWillAppear = false
 
@@ -26,7 +30,10 @@ class UsersListTableViewController: UITableViewController {
         // self.navigationItem.rightBarButtonItem = self.editButtonItem()
     }
 
-    
+    func searchUsers() {
+        usersList = GithubAPI.getUsersList()
+        tableView.reloadData()
+    }
 
     // MARK: - Table view data source
 
@@ -39,8 +46,8 @@ class UsersListTableViewController: UITableViewController {
         if searchController.isActive && searchController.searchBar.text != "" {
             return filteredResults.count
         }
-        return self.usersList.count
-        
+        print("COUNT: ", usersList.count)
+        return usersList.count
     }
 
     
@@ -48,9 +55,9 @@ class UsersListTableViewController: UITableViewController {
         let cell = tableView.dequeueReusableCell(withIdentifier: "userCell", for: indexPath)
         
         if searchController.isActive && searchController.searchBar.text != "" {
-            cell.textLabel?.text = filteredResults[indexPath.row]
+            cell.textLabel?.text = filteredResults[indexPath.row].login
         } else {
-            cell.textLabel?.text = usersList[indexPath.row]
+            cell.textLabel?.text = usersList[indexPath.row].login
         }
         
         return cell
@@ -129,8 +136,8 @@ extension UsersListTableViewController: UISearchBarDelegate, UISearchResultsUpda
     
     
     func filterContentForSearchText(_ searchText: String) {
-        filteredResults = usersList.filter({( item: String) -> Bool in
-            return (item.lowercased().contains(searchText.lowercased()))
+        filteredResults = usersList.filter({( item: User) -> Bool in
+            return (item.login?.lowercased().contains(searchText.lowercased()))!
         })
         
         tableView.reloadData()
