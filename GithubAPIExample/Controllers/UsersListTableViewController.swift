@@ -14,31 +14,22 @@ class UsersListTableViewController: UITableViewController {
     var usersList = [User]()
     var filteredResults = [User]()
     let searchController = UISearchController(searchResultsController: nil)
-    
+    let githubUrl = "https://api.github.com/search/users?q=repos:%3E100+followers:%3E1000"
     
     override func viewDidLoad() {
         super.viewDidLoad()
         setupSearchBar()
-
-        performSelector(inBackground: #selector(searchUsers), with: nil)
         
-        
-        // Uncomment the following line to preserve selection between presentations
-        // self.clearsSelectionOnViewWillAppear = false
 
-        // Uncomment the following line to display an Edit button in the navigation bar for this view controller.
-        // self.navigationItem.rightBarButtonItem = self.editButtonItem()
+        loadUsersInformation()
+        
     }
 
-    func searchUsers() {
-        usersList = GithubAPI.getUsersList()
-        tableView.reloadData()
-    }
+
 
     // MARK: - Table view data source
 
     override func numberOfSections(in tableView: UITableView) -> Int {
-        
         return 1
     }
 
@@ -46,7 +37,7 @@ class UsersListTableViewController: UITableViewController {
         if searchController.isActive && searchController.searchBar.text != "" {
             return filteredResults.count
         }
-        print("COUNT: ", usersList.count)
+        
         return usersList.count
     }
 
@@ -104,8 +95,12 @@ class UsersListTableViewController: UITableViewController {
 
     // In a storyboard-based application, you will often want to do a little preparation before navigation
     override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
-        // Get the new view controller using segue.destinationViewController.
-        // Pass the selected object to the new view controller.
+       
+        if segue.identifier == "showUserDetails" {
+            if let repositoriesVC = segue.destination as? RepositoriesTableViewController {
+                repositoriesVC.user = usersList[tableView.indexPathForSelectedRow!.row]
+            }
+        }
     }
 
 
@@ -125,11 +120,6 @@ class UsersListTableViewController: UITableViewController {
 
 extension UsersListTableViewController: UISearchBarDelegate, UISearchResultsUpdating {
     
-//    func searchBar(_ searchBar: UISearchBar, selectedScopeButtonIndexDidChange selectedScope: Int) {
-//        filterContentForSearchText(searchBar.text!)
-//    }
-    
-    
     func updateSearchResults(for searchController: UISearchController) {
         filterContentForSearchText(searchController.searchBar.text!)
     }
@@ -141,7 +131,53 @@ extension UsersListTableViewController: UISearchBarDelegate, UISearchResultsUpda
         })
         
         tableView.reloadData()
+    }    
+}
+
+
+extension UsersListTableViewController {
+    
+    func loadUsersInformation()  {
+        Alamofire.request(githubUrl).responseJSON(completionHandler: {
+            response in
+            
+            guard response.result.isSuccess else {
+                print("Error while fetching tags: \(response.result.error)")
+                
+                return
+            }
+            
+            self.parseData(JSONData: response.data!)
+            print("usuarios: ", self.usersList.count)
+            self.tableView.reloadData()
+        })
+        
     }
     
     
+    func parseData(JSONData: Data) {
+        do {
+            let readableJSON = try JSONSerialization.jsonObject(with: JSONData, options:.allowFragments) as! [String: Any]
+            
+            if let items = readableJSON["items"] as? [[String: Any]] {
+                
+                for item in items {
+                    
+                    guard let login = item["login"] as? String,
+                        let id = item["id"] as? Int,
+                        let avatarUrl = item["avatar_url"] as? String,
+                        let reposUrl = item["repos_url"] as? String else { break }
+                    
+                    
+                    let user = User(login: login, id: id, avatarUrl: avatarUrl, repositoriesUrl: reposUrl)
+                    usersList.append(user)
+                }
+            }
+        }
+        catch {
+            print(error)
+        }
+        
+    }
+
 }
